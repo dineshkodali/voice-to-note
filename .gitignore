@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+
+# Environment Variables (CRITICAL)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+server/.env
+client/.env
+
+# Large files
+uploads/
+*.mp3
+*.mp4
+*.wav
+*.m4a

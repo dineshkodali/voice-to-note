@@ -1,5 +1,7 @@
 # Voice to Note 🎙️✨
 
+**Live Demo: [https://dineshkodali.github.com/voice-to-note](https://dineshkodali.github.com/voice-to-note)**
+
 A premium, AI-powered transcription and summarization platform. Transform your audio and video recordings into structured, searchable, and labeled notes instantly.
 
 ## 🚀 Features

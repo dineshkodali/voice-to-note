@@ -83,10 +83,13 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     const fullTranscript = utterances.map(u => `[${u.speaker}]: ${u.text}`).join('\n\n');
 
-    // Extract Summary from Deepgram result
-    const summaryResult = result.results.channels[0].alternatives[0].summaries?.[0]?.summary || "Summary not available for this audio length or quality.";
+    // Extract Summary and Metadata from Deepgram result
+    const alternatives = result.results.channels[0].alternatives[0];
+    const summaryResult = alternatives.summaries?.[0]?.summary || "Summary not available for this audio length or quality.";
+    const duration = result.metadata?.duration || 0;
+    const modelUsed = result.metadata?.model_info?.name || "nova-2";
 
-    console.log('Deepgram processing complete.');
+    console.log('Deepgram processing complete. Duration:', duration, 'seconds');
 
     // Clean up uploaded file
     fs.unlinkSync(filePath);
@@ -94,9 +97,14 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     res.json({
       transcript: fullTranscript,
-      utterances: utterances, // New field for chat UI
+      utterances: utterances,
       summary: summaryResult,
       bullets: "Key insights are included in the summary above. Speaker labeling is active in the full transcript.",
+      metadata: {
+        duration: duration,
+        model: modelUsed,
+        processedAt: new Date().toISOString()
+      }
     });
   } catch (error) {
     console.error('CRITICAL ERROR in /api/upload:', error);
