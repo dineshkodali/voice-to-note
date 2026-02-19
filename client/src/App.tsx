@@ -11,7 +11,10 @@ import {
   Filter,
   Layers,
   FileDown,
-  AlertCircle
+  AlertCircle,
+  ShieldCheck,
+  Globe,
+  Code
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { jsPDF } from 'jspdf';
@@ -50,10 +53,13 @@ const App: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [history, setHistory] = useState<TranscriptionResult[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [userIp, setUserIp] = useState<string>('Detecting...');
+  const [showRaw, setShowRaw] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Load local history
     const saved = localStorage.getItem('voice-to-note-history');
     if (saved) {
       try {
@@ -63,6 +69,18 @@ const App: React.FC = () => {
       }
     }
 
+    // Fetch User IP
+    const fetchIp = async () => {
+      try {
+        const res = await axios.get('https://api.ipify.org?format=json');
+        setUserIp(res.data.ip);
+      } catch (e) {
+        setUserIp('Unknown');
+      }
+    };
+    fetchIp();
+
+    // Fetch Cloud Manifest
     const fetchCloudManifest = async () => {
       try {
         const response = await axios.get(`${API_URL.replace('/api', '')}/data/manifest.json`);
@@ -171,144 +189,205 @@ const App: React.FC = () => {
   const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Recently';
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans selection:bg-indigo-100 p-4 lg:p-6">
-      <div className="max-w-[1700px] mx-auto flex flex-col gap-6">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans selection:bg-indigo-100 flex flex-col">
 
-        {/* TOP SECTION: 3 COLUMNS */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-auto lg:h-[420px]">
-
-          {/* COLUMN 1: ARCHIVE */}
-          <div className="lg:col-span-3 bg-white rounded-[12px] shadow-sm border border-slate-200/60 flex flex-col overflow-hidden">
-            <header className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 bg-indigo-600 rounded-[8px] flex items-center justify-center text-white shadow-sm">
-                  <History className="w-4 h-4" />
-                </div>
-                <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Archive</h2>
-              </div>
-              <button className="p-1.5 text-slate-400 hover:text-slate-600 transition-all"><Filter className="w-3.5 h-3.5" /></button>
-            </header>
-            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar space-y-1.5">
-              {history.length > 0 ? (
-                history.map(h => (
-                  <button key={h.id} onClick={() => fetchFullNote(h)} className={`w-full text-left px-4 py-3 rounded-[10px] transition-all border ${result?.id === h.id ? 'bg-indigo-50/50 border-indigo-100 shadow-sm' : 'hover:bg-slate-50 border-transparent'}`}>
-                    <h3 className="text-xs font-bold text-slate-800 truncate">{h.fileName}</h3>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] font-medium text-slate-400">
-                      <span>{formatDate(h.metadata?.processedAt)}</span> • <span>{formatDuration(h.metadata?.duration)}</span>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center opacity-30 py-10"><Layers className="w-10 h-10 mb-2 text-slate-200" /><span className="text-[10px] font-bold uppercase tracking-widest">No Stream</span></div>
-              )}
+      {/* HEADER */}
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-6 py-4">
+        <div className="max-w-[1700px] mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-600 rounded-[12px] flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
+              <Mic2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-sm font-black uppercase tracking-widest text-slate-800">Voice to Note</h1>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Neural Transcription Engine</p>
             </div>
           </div>
-
-          {/* COLUMN 2: CAPTURE ZONE */}
-          <div className="lg:col-span-6 bg-white rounded-[12px] shadow-sm border border-slate-200/60 flex flex-col overflow-hidden">
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center relative">
-              <div onClick={() => !loading && fileInputRef.current?.click()} className={`w-full max-w-lg aspect-[21/9] rounded-[12px] border-2 border-dashed flex flex-col items-center justify-center transition-all cursor-pointer ${file ? 'bg-indigo-600 border-indigo-400 shadow-lg shadow-indigo-600/10' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-50 hover:border-slate-300'}`}>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                <div className={`p-5 rounded-[10px] mb-3 ${file ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
-                  <Mic2 className="w-8 h-8" />
-                </div>
-                <h3 className={`text-sm font-bold ${file ? 'text-white' : 'text-slate-700'}`}>{file ? file.name : 'Initiate Audio Signal'}</h3>
-                {!file && <p className="text-[10px] font-medium text-slate-400 mt-2 uppercase tracking-[0.2em]">MP4 • MP3 • WAV • M4A</p>}
-              </div>
-
-              <AnimatePresence>
-                {file && !loading && (
-                  <motion.button
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    onClick={handleUpload}
-                    className="mt-6 px-12 py-3.5 bg-indigo-600 text-white rounded-[10px] text-[11px] font-bold uppercase tracking-widest shadow-md shadow-indigo-600/20 hover:bg-indigo-700 active:scale-95 transition-all"
-                  >
-                    Analyze Stream
-                  </motion.button>
-                )}
-              </AnimatePresence>
-
-              {loading && (
-                <div className="mt-8 w-full max-w-sm space-y-3">
-                  <div className="flex justify-between font-bold text-[10px] text-indigo-600 uppercase tracking-widest"><span>Neural Processing...</span><span>{uploadProgress}%</span></div>
-                  <div className="h-1.5 bg-indigo-50 rounded-full overflow-hidden shrink-0"><motion.div initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} className="h-full bg-indigo-600 rounded-full" /></div>
-                </div>
-              )}
-              {error && <div className="mt-4 px-4 py-2 bg-red-50 text-red-600 text-[10px] font-bold border border-red-100 rounded-[8px] flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5" /> {error}</div>}
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Active Signal</span>
             </div>
-          </div>
-
-          {/* COLUMN 3: INTELLIGENCE */}
-          <div className="lg:col-span-3 bg-white rounded-[12px] shadow-sm border border-slate-200/60 flex flex-col overflow-hidden">
-            <header className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5 bg-slate-50/50">
-              <div className="w-8 h-8 bg-purple-600 rounded-[8px] flex items-center justify-center text-white shadow-sm">
-                <LayoutGrid className="w-4 h-4" />
-              </div>
-              <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Insights</h2>
-            </header>
-            <div className="p-5 flex-1 flex flex-col">
-              {result ? (
-                <div className="space-y-5 h-full flex flex-col">
-                  <div className="bg-slate-50 p-4 rounded-[10px] border border-slate-100 space-y-3">
-                    <div className="flex justify-between items-center text-[11px] font-bold border-b border-slate-200/50 pb-2"><span className="text-slate-400">Length</span><span className="text-indigo-600">{formatDuration(result.metadata?.duration)}</span></div>
-                    <div className="flex justify-between items-center text-[11px] font-bold border-b border-slate-200/50 pb-2"><span className="text-slate-400">AI Engine</span><span className="text-purple-600">{result.metadata?.model || 'Nova-2'}</span></div>
-                    <div className="flex justify-between items-center text-[11px] font-bold"><span className="text-slate-400">Confidence</span><span className="text-emerald-600">98.4%</span></div>
-                  </div>
-                  <div className="mt-auto grid grid-cols-2 gap-2">
-                    <button onClick={downloadPdf} className="py-3 bg-slate-900 text-white rounded-[8px] text-[10px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-black transition-all shadow-sm"><Download className="w-3.5 h-3.5" /> PDF</button>
-                    <button onClick={downloadText} className="py-3 bg-white text-slate-600 rounded-[8px] text-[10px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-all border border-slate-200"><FileDown className="w-3.5 h-3.5" /> TXT</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-center py-10"><Sparkles className="w-10 h-10 mb-3 text-purple-300" /><span className="text-[10px] font-bold uppercase tracking-[0.2em]">Awaiting Data</span></div>
-              )}
-            </div>
+            <button className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
+              <ShieldCheck className="w-5 h-5" />
+            </button>
           </div>
         </div>
+      </nav>
 
-        {/* BOTTOM SECTION: EXECUTIVE SUMMARY & TRANSCRIPT */}
-        <div className="bg-white rounded-[12px] shadow-sm border border-slate-200/60 overflow-hidden flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-slate-100 min-h-[500px]">
-          <div className="lg:w-1/3 p-8 bg-slate-50/20">
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-600 mb-5 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5" /> Executive Summary</h3>
-            {result ? (
-              <div className="prose prose-slate">
-                <p className="text-[15px] font-medium leading-relaxed text-slate-700 italic border-l-4 border-indigo-100 pl-4">{result.summary}</p>
-              </div>
-            ) : (
-              <p className="text-[11px] font-bold uppercase text-slate-300 tracking-wider">No active analysis</p>
-            )}
-          </div>
+      <main className="flex-1 p-4 lg:p-6">
+        <div className="max-w-[1700px] mx-auto flex flex-col gap-6">
 
-          <div className="lg:w-2/3 p-8 flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2"><MessageSquare className="w-3.5 h-3.5" /> Transcript Stream</h3>
-              <div className="relative w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <input type="text" placeholder="Search through meeting..." className="w-full bg-slate-50 border border-slate-100 rounded-[8px] py-1.5 pl-9 pr-4 text-xs font-bold focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-200 transition-all outline-none" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-5 pr-4">
-              <AnimatePresence>
-                {result?.utterances ? (
-                  result.utterances.filter(u => u.text.toLowerCase().includes(searchQuery.toLowerCase())).map((u, i) => (
-                    <motion.div initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} key={i} className="flex gap-4 group">
-                      <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full mt-2 shrink-0 group-hover:scale-125 transition-all" />
-                      <div className="space-y-1">
-                        <span className="text-[9px] font-bold uppercase text-indigo-600 tracking-widest">{u.speaker}</span>
-                        <p className="text-[13px] font-medium text-slate-700 leading-relaxed group-hover:text-slate-900 transition-colors">{u.text}</p>
+          {/* TOP SECTION: 3 COLUMNS */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-auto lg:h-[420px]">
+
+            {/* COLUMN 1: ARCHIVE */}
+            <div className="lg:col-span-3 bg-white rounded-[12px] shadow-sm border border-slate-200/60 flex flex-col overflow-hidden">
+              <header className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 bg-indigo-600 rounded-[8px] flex items-center justify-center text-white shadow-sm">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Archive</h2>
+                </div>
+                <button className="p-1.5 text-slate-400 hover:text-slate-600 transition-all"><Filter className="w-3.5 h-3.5" /></button>
+              </header>
+              <div className="flex-1 overflow-y-auto p-3 custom-scrollbar space-y-1.5">
+                {history.length > 0 ? (
+                  history.map(h => (
+                    <button key={h.id} onClick={() => fetchFullNote(h)} className={`w-full text-left px-4 py-3 rounded-[10px] transition-all border ${result?.id === h.id ? 'bg-indigo-50/50 border-indigo-100 shadow-sm' : 'hover:bg-slate-50 border-transparent'}`}>
+                      <h3 className="text-xs font-bold text-slate-800 truncate">{h.fileName}</h3>
+                      <div className="flex items-center gap-2 mt-1 text-[10px] font-medium text-slate-400">
+                        <span>{formatDate(h.metadata?.processedAt)}</span> • <span>{formatDuration(h.metadata?.duration)}</span>
                       </div>
-                    </motion.div>
+                    </button>
                   ))
                 ) : (
-                  <div className="h-full flex items-center justify-center opacity-20"><Mic2 className="w-12 h-12 text-slate-200" /></div>
+                  <div className="h-full flex flex-col items-center justify-center opacity-30 py-10"><Layers className="w-10 h-10 mb-2 text-slate-200" /><span className="text-[10px] font-bold uppercase tracking-widest">No Stream</span></div>
                 )}
-              </AnimatePresence>
+              </div>
+            </div>
+
+            {/* COLUMN 2: CAPTURE ZONE */}
+            <div className="lg:col-span-6 bg-white rounded-[12px] shadow-sm border border-slate-200/60 flex flex-col overflow-hidden">
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center relative">
+                <div onClick={() => !loading && fileInputRef.current?.click()} className={`w-full max-w-lg aspect-[21/9] rounded-[12px] border-2 border-dashed flex flex-col items-center justify-center transition-all cursor-pointer ${file ? 'bg-indigo-600 border-indigo-400 shadow-lg shadow-indigo-600/10' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-50 hover:border-slate-300'}`}>
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                  <div className={`p-5 rounded-[10px] mb-3 ${file ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
+                    <Mic2 className="w-8 h-8" />
+                  </div>
+                  <h3 className={`text-sm font-bold ${file ? 'text-white' : 'text-slate-700'}`}>{file ? file.name : 'Initiate Audio Signal'}</h3>
+                  {!file && <p className="text-[10px] font-medium text-slate-400 mt-2 uppercase tracking-[0.2em]">MP4 • MP3 • WAV • M4A</p>}
+                </div>
+
+                <AnimatePresence>
+                  {file && !loading && (
+                    <motion.button
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      onClick={handleUpload}
+                      className="mt-6 px-12 py-3.5 bg-indigo-600 text-white rounded-[10px] text-[11px] font-bold uppercase tracking-widest shadow-md shadow-indigo-600/20 hover:bg-indigo-700 active:scale-95 transition-all"
+                    >
+                      Analyze Stream
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+
+                {loading && (
+                  <div className="mt-8 w-full max-w-sm space-y-3">
+                    <div className="flex justify-between font-bold text-[10px] text-indigo-600 uppercase tracking-widest"><span>Neural Processing...</span><span>{uploadProgress}%</span></div>
+                    <div className="h-1.5 bg-indigo-50 rounded-full overflow-hidden shrink-0"><motion.div initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} className="h-full bg-indigo-600 rounded-full" /></div>
+                  </div>
+                )}
+                {error && <div className="mt-4 px-4 py-2 bg-red-50 text-red-600 text-[10px] font-bold border border-red-100 rounded-[8px] flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5" /> {error}</div>}
+              </div>
+            </div>
+
+            {/* COLUMN 3: INTELLIGENCE */}
+            <div className="lg:col-span-3 bg-white rounded-[12px] shadow-sm border border-slate-200/60 flex flex-col overflow-hidden">
+              <header className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 bg-purple-600 rounded-[8px] flex items-center justify-center text-white shadow-sm">
+                    <LayoutGrid className="w-4 h-4" />
+                  </div>
+                  <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Insights</h2>
+                </div>
+                <button onClick={() => setShowRaw(!showRaw)} className={`p-1.5 rounded-md transition-colors ${showRaw ? 'bg-purple-100 text-purple-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                  <Code className="w-3.5 h-3.5" />
+                </button>
+              </header>
+              <div className="p-5 flex-1 flex flex-col overflow-hidden">
+                {result ? (
+                  <div className="space-y-5 h-full flex flex-col overflow-hidden">
+                    <AnimatePresence mode="wait">
+                      {showRaw ? (
+                        <motion.div key="raw" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 bg-slate-900 rounded-[10px] p-4 overflow-auto custom-scrollbar">
+                          <pre className="text-[9px] font-mono text-emerald-400">{JSON.stringify(result, null, 2)}</pre>
+                        </motion.div>
+                      ) : (
+                        <motion.div key="stats" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3 flex-1 flex flex-col">
+                          <div className="bg-slate-50 p-4 rounded-[10px] border border-slate-100 space-y-3">
+                            <div className="flex justify-between items-center text-[11px] font-bold border-b border-slate-200/50 pb-2"><span className="text-slate-400">Length</span><span className="text-indigo-600">{formatDuration(result.metadata?.duration)}</span></div>
+                            <div className="flex justify-between items-center text-[11px] font-bold border-b border-slate-200/50 pb-2"><span className="text-slate-400">AI Engine</span><span className="text-purple-600">{result.metadata?.model || 'Nova-2'}</span></div>
+                            <div className="flex justify-between items-center text-[11px] font-bold"><span className="text-slate-400">Confidence</span><span className="text-emerald-600">98.4%</span></div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    <div className="mt-auto grid grid-cols-2 gap-2">
+                      <button onClick={downloadPdf} className="py-3 bg-slate-900 text-white rounded-[8px] text-[10px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-black transition-all shadow-sm"><Download className="w-3.5 h-3.5" /> PDF</button>
+                      <button onClick={downloadText} className="py-3 bg-white text-slate-600 rounded-[8px] text-[10px] font-bold uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-all border border-slate-200"><FileDown className="w-3.5 h-3.5" /> TXT</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center opacity-30 text-center py-10"><Sparkles className="w-10 h-10 mb-3 text-purple-300" /><span className="text-[10px] font-bold uppercase tracking-[0.2em]">Awaiting Data</span></div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* BOTTOM SECTION: EXECUTIVE SUMMARY & TRANSCRIPT */}
+          <div className="bg-white rounded-[12px] shadow-sm border border-slate-200/60 overflow-hidden flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-slate-100 min-h-[500px]">
+            <div className="lg:w-1/3 p-8 bg-slate-50/20">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-600 mb-5 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5" /> Executive Summary</h3>
+              {result ? (
+                <div className="prose prose-slate">
+                  <p className="text-[15px] font-medium leading-relaxed text-slate-700 italic border-l-4 border-indigo-100 pl-4">{result.summary}</p>
+                </div>
+              ) : (
+                <p className="text-[11px] font-bold uppercase text-slate-300 tracking-wider">No active analysis</p>
+              )}
+            </div>
+
+            <div className="lg:w-2/3 p-8 flex flex-col">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2"><MessageSquare className="w-3.5 h-3.5" /> Transcript Stream</h3>
+                <div className="relative w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <input type="text" placeholder="Search through meeting..." className="w-full bg-slate-50 border border-slate-100 rounded-[8px] py-1.5 pl-9 pr-4 text-xs font-bold focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-200 transition-all outline-none" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-5 pr-4">
+                <AnimatePresence>
+                  {result?.utterances ? (
+                    result.utterances.filter(u => u.text.toLowerCase().includes(searchQuery.toLowerCase())).map((u, i) => (
+                      <motion.div initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} key={i} className="flex gap-4 group">
+                        <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full mt-2 shrink-0 group-hover:scale-125 transition-all" />
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-bold uppercase text-indigo-600 tracking-widest">{u.speaker}</span>
+                          <p className="text-[13px] font-medium text-slate-700 leading-relaxed group-hover:text-slate-900 transition-colors">{u.text}</p>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <div className="h-full flex items-center justify-center opacity-20"><Mic2 className="w-12 h-12 text-slate-200" /></div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </main>
+
+      {/* FOOTER */}
+      <footer className="bg-white border-t border-slate-200/60 px-6 py-4 mt-auto">
+        <div className="max-w-[1700px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            <span>© 2026 Dinesh Kodali developed</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
+              <Globe className="w-3 h-3" />
+              <span className="uppercase tracking-tighter">Your Access ID:</span>
+              <span className="text-indigo-600 font-mono">{userIp}</span>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
+              <span>● Cloud Sync Stable</span>
             </div>
           </div>
         </div>
-
-      </div>
+      </footer>
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
