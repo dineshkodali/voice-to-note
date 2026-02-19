@@ -91,11 +91,10 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     console.log('Deepgram processing complete. Duration:', duration, 'seconds');
 
-    // Clean up uploaded file
-    fs.unlinkSync(filePath);
-    console.log('Cleanup: Deleted temporary file.');
-
-    res.json({
+    // --- DATA PERSISTENCE ---
+    const transcriptionData = {
+      id: Date.now().toString(),
+      fileName: req.file.originalname,
       transcript: fullTranscript,
       utterances: utterances,
       summary: summaryResult,
@@ -105,7 +104,42 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         model: modelUsed,
         processedAt: new Date().toISOString()
       }
+    };
+
+    const dataDir = path.join(__dirname, '..', 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    const filePathJson = path.join(dataDir, `${transcriptionData.id}.json`);
+    fs.writeFileSync(filePathJson, JSON.stringify(transcriptionData, null, 2));
+
+    // Update manifest.json
+    const manifestPath = path.join(dataDir, 'manifest.json');
+    let manifest = [];
+    if (fs.existsSync(manifestPath)) {
+      try {
+        manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      } catch (e) {
+        manifest = [];
+      }
+    }
+    manifest.unshift({
+      id: transcriptionData.id,
+      fileName: transcriptionData.fileName,
+      processedAt: transcriptionData.metadata.processedAt,
+      duration: transcriptionData.metadata.duration
     });
+    // Limit manifest to 50 items
+    manifest = manifest.slice(0, 50);
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    // --- END DATA PERSISTENCE ---
+
+    // Clean up uploaded file
+    fs.unlinkSync(filePath);
+    console.log('Cleanup: Deleted temporary file.');
+
+    res.json(transcriptionData);
   } catch (error) {
     console.error('CRITICAL ERROR in /api/upload:', error);
     res.status(500).send({ message: 'Error processing audio', error: error.message });
