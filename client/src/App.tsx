@@ -200,13 +200,13 @@ const App: React.FC = () => {
             </div>
             <div>
               <h1 className="text-sm font-black uppercase tracking-widest text-slate-800">Voice to Note</h1>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Neural Transcription Engine</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">SD Commercial UK LTD</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Active Signal</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">SD Commercial UK LTD</span>
             </div>
             <button className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
               <ShieldCheck className="w-5 h-5" />
@@ -373,8 +373,9 @@ const App: React.FC = () => {
       {/* FOOTER */}
       <footer className="bg-white border-t border-slate-200/60 px-6 py-4 mt-auto">
         <div className="max-w-[1700px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            <span>© 2026 Dinesh Kodali developed</span>
+          <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            <span>© 2026 Dinesh Kodali</span>
+            <span className="text-[8px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">v1.2.0-hotfix</span>
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
@@ -383,7 +384,7 @@ const App: React.FC = () => {
               <span className="text-indigo-600 font-mono">{userIp}</span>
             </div>
             <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-              <span>● Cloud Sync Stable</span>
+              <span></span>
             </div>
           </div>
         </div>
@@ -393,11 +394,7 @@ const App: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
-        @font-face {
-          font-family: 'Outfit';
-          src: url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
-        }
-        body { font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { -webkit-font-smoothing: antialiased; }
       `}</style>
     </div>
   );
